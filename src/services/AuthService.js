@@ -1,0 +1,66 @@
+// MODELS
+const { User } = require('../models');
+// HELPERS
+const { compareText } = require("../helpers/bcrypt");
+const { generateToken } = require("../helpers/jwt");
+
+class AuthService {
+  /**
+   * Login Service
+   * 
+   * @param {string} email
+   * @param {string} password
+   * 
+   * @returns {Promise<UserLevel>}
+   */
+  async Login(email, password) {
+    try {
+      // get user by email
+      const dtUser = await User.findOne({
+        where:{
+          email
+        }
+      });
+
+      if (dtUser == null) {
+        return {
+          code: 401,
+          message: 'wrong email or password',
+        }; 
+      } else {
+        // compare password
+        const passIsCorrect = compareText(password,dtUser.password);
+
+        if (!passIsCorrect) {
+          return {
+            code: 401,
+            message: 'wrong email or password',
+          }; 
+        } else {
+          // generate token
+          let payload = {
+            user_id: dtUser.user_id,
+            email: dtUser.email,
+          }
+
+          return {
+            code: 200,
+            message: 'login success',
+            data: {
+              token: generateToken(payload)
+            }
+          };  
+        }
+      }
+
+    } catch (error) {
+      return {
+        code: 500,
+        message: 'Error - Login Service: ' + error.message,
+        data: null
+      }; 
+    }
+  }
+}
+
+module.exports = new AuthService();
