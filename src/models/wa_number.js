@@ -2,70 +2,62 @@
 
 // NODE LIBS
 const { Model } = require('sequelize');
-// HELPERS
-const { hashText } = require("../helpers/bcrypt");
 
 module.exports = (sequelize, DataTypes) => {
-  class User extends Model {
+  class WaNumber extends Model {
     static associate(models) {
-      this.belongsTo(models.UserLevel, {
-        foreignKey: 'user_level_id',
+      this.belongsTo(models.User, {
+        foreignKey: 'user_id',
+        as: 'user'
       });
     }
   }
-  User.init({
-    user_id: {
+  WaNumber.init({
+    wa_number_id: {
       type: DataTypes.INTEGER,
       autoIncrement: false,
       primaryKey: true,
     },
-    user_level_id: {
+    user_id: {
       type: DataTypes.INTEGER,
       allowNull: false,
       references: {
-        model: 'UserLevel',
-        key: 'user_level_id'
+        model: 'User',
+        key: 'user_id'
       },
       validate: {
         notEmpty: {
           args: true,
-          msg: "user_level_id is required"
+          msg: "user_id is required"
         },
         notNull: {
-          msg: 'user_level_id is required'
+          msg: 'user_id is required'
         }
       }
     },
-    email: {
+    name: {
       type: DataTypes.STRING,
-      allowNull: false,
-      unique: {
-        args: true,
-        msg: "email is already exist"
-      },
-      validate: {
-        isEmail: {
-          msg: "email is not falid"
-        },
-        notEmpty: {
-          args: true,
-          msg: "email is required"
-        },
-        notNull: {
-          msg: 'email is required'
-        }
-      }
+      allowNull: true,
+      // validate: {
+      //   notEmpty: {
+      //     args: true,
+      //     msg: "name is required"
+      //   },
+      //   notNull: {
+      //     msg: 'name is required'
+      //   }
+      // }
     },
-    password: {
+    number: {
       type: DataTypes.STRING,
       allowNull: false,
       validate: {
         notEmpty: {
           args: true,
-          msg: "password is required"
+          msg: "number is required"
         },
         notNull: {
-          msg: 'password is required'
+          msg: 'number is required'
         }
       }
     },
@@ -101,19 +93,14 @@ module.exports = (sequelize, DataTypes) => {
     },
   }, {
     sequelize,
-    modelName: 'User',
-    tableName: 'user',
+    modelName: 'WaNumber',
+    tableName: 'wa_number',
     timestamps: false,
     hooks: {
-      beforeCreate: (user,opt) => {
-        user.password = hashText(user.password);
+      beforeCreate: (wa_number,opt) => {
+        wa_number.name = wa_number.name ? wa_number.name : `number-${wa_number.number}`;
       },
-      beforeUpdate: (user, options) => {
-        if (user.changed('password')) {
-          user.password = hashText(user.password);
-        }
-      }
     }
   });
-  return User;
+  return WaNumber;
 };

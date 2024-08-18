@@ -10,6 +10,9 @@ module.exports = {
       {
         name: 'superadmin',
       },
+      {
+        name: 'client',
+      },
     ], {
     });
   },

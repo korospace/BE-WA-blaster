@@ -13,7 +13,7 @@ class AuthController {
             let {email,password} = req.body;
 
             // service logic
-            const dtLogin = await AuthService.Login(email, password);
+            const dtLogin = await AuthService.login(email, password);
 
             // response api
             formatResponse(res, dtLogin.code, dtLogin.message, dtLogin.data)

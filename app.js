@@ -3,8 +3,10 @@ require('dotenv').config();
 const express = require("express");
 
 // ROUTES
-const AuthRoute = require("./src/routes/AuthRoute");
-const UserRoute = require("./src/routes/UserRoute");
+const AuthRoute      = require("./src/routes/AuthRoute");
+const UserLevelRoute = require("./src/routes/UserLevelRoute");
+const UserRoute      = require("./src/routes/UserRoute");
+const WaNumberRoute  = require("./src/routes/WaNumberRoute");
 
 // LOAD CONFIGS
 const port = process.env.NODE_PORT || 4000;
@@ -17,7 +19,9 @@ app.use(express.json());
 // EXPRESS - ROUTE DEFINE
 app.get('/', (req,res) => {res.status(200).json({message:"FOURTHMACE IS HERE"})});
 app.use(AuthRoute);
+app.use(UserLevelRoute);
 app.use(UserRoute);
+app.use(WaNumberRoute);
 
 // EXPRESS - LISTEN PORT
 app.listen(port,() => {

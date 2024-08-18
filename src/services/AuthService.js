@@ -11,55 +11,62 @@ class AuthService {
    * @param {string} email
    * @param {string} password
    * 
-   * @returns {Promise<UserLevel>}
+   * @returns {Promise<{
+   *    code: number, 
+   *    message: 
+   *    string, 
+   *    data: any
+   * }>} 
    */
-  async Login(email, password) {
-    try {
-      // get user by email
-      const dtUser = await User.findOne({
-        where:{
-          email
-        }
-      });
+  async login(email, password) {
+      try {
+        // get user by email
+        const dtUser = await User.findOne({
+          where:{
+            email
+          }
+        });
 
-      if (dtUser == null) {
-        return {
-          code: 401,
-          message: 'wrong email or password',
-        }; 
-      } else {
-        // compare password
-        const passIsCorrect = compareText(password,dtUser.password);
-
-        if (!passIsCorrect) {
+        if (dtUser == null) {
           return {
             code: 401,
             message: 'wrong email or password',
+            data: null
           }; 
         } else {
-          // generate token
-          let payload = {
-            user_id: dtUser.user_id,
-            email: dtUser.email,
-          }
+          // compare password
+          const passIsCorrect = compareText(password,dtUser.password);
 
-          return {
-            code: 200,
-            message: 'login success',
-            data: {
-              token: generateToken(payload)
+          if (!passIsCorrect) {
+            return {
+              code: 401,
+              message: 'wrong email or password',
+              data: null
+            }; 
+          } else {
+            // generate token
+            let payload = {
+              user_id: dtUser.user_id,
+              email: dtUser.email,
             }
-          };  
-        }
-      }
 
-    } catch (error) {
-      return {
-        code: 500,
-        message: 'Error - Login Service: ' + error.message,
-        data: null
-      }; 
-    }
+            return {
+              code: 200,
+              message: 'login success',
+              data: {
+                token: generateToken(payload)
+              }
+            };  
+          }
+        }
+
+      } catch (error) {
+        return {
+          code: 500,
+          message: 'Error - Auth Service - login : ' + error.message,
+          data: null
+        }; 
+      }
   }
 }
 
