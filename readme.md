@@ -1,59 +1,61 @@
 # SETUP
+
 1. install all libs
 
-    ```
-    npm install
-    ```
+   ```
+   npm install
+   ```
 
 2. copy env_example to .env
 
-    ```
-    cp .env.example .env
-    ```
+   ```
+   cp .env.example .env
+   ```
 
-3. set database credential at <u>config/config.json</u>
+3. make sure your database is READY!
 
-
-4. make sure your database is READY!
+4. run migration & seeder
 
 5. run app
 
-    ```
-    npm run start
-    ```
+   ```
+   npm run start
+   ```
 
 # MIGRATION TABLE
+
 1. create new migration file
 
-    ```
-    npx sequelize-cli migration:generate --name create-user-table
-    ```
+   ```
+   npx sequelize-cli migration:generate --name create-user-table
+   ```
 
 2. run migration
 
-    ```
-    npx sequelize-cli db:migrate --env production
-    ```
+   ```
+   npx sequelize-cli db:migrate --env production
+   ```
 
 3. rollback migration
 
-    ```
-    npx sequelize-cli db:migrate:undo:all --env production
-    ```
+   ```
+   npx sequelize-cli db:migrate:undo:all --env production
+   ```
 
 # SEEDER TABLE
+
 1. create new seeder file
 
-    ```
-    npx sequelize-cli seed:generate --name user-seeder
-    ```
+   ```
+   npx sequelize-cli seed:generate --name user-seeder
+   ```
 
 2. run seeder
 
-    ```
-    npx sequelize-cli db:seed:all
+   ```
+   npx sequelize-cli db:seed:all
 
-    // OR
+   // OR
 
-    npx sequelize-cli db:seed --seed 20240817102423-user-seeder.js
-    ```
+   npx sequelize-cli db:seed --seed 20240817102423-user-seeder.js
+   ```
