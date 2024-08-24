@@ -2,14 +2,14 @@
 const { ValidationError } = require("sequelize");
 
 // MODELS
-const { User, WaNumber, sequelize } = require("../models");
+const { User, WaCampaign } = require("../models");
 
 // HELPERS
 const { generateAutoIncrement } = require("../helpers/utils");
 
-class WaNumberService {
+class WaCampaignService {
   /**
-   * Get All WA Number
+   * Get All WA Campaign
    *
    * @param {string} userId
    * @param {any} loginInfo
@@ -17,7 +17,7 @@ class WaNumberService {
    * @returns {Promise<{
    *    code: number,
    *    message: string,
-   *    data: {wa_number_id: number, user_id: number, name: string, number: string}[] | null
+   *    data: {wa_campaign_id: number, user_id: number, text: string}[] | null
    * }>}
    */
   async getAll(userId, loginInfo) {
@@ -46,28 +46,28 @@ class WaNumberService {
             ]
           : [];
 
-      const dt = await WaNumber.findAll({
-        attributes: ["wa_number_id", "user_id", "name", "number"],
+      const dt = await WaCampaign.findAll({
+        attributes: ["wa_campaign_id", "user_id", "text"],
         where: whereClause,
         include: includeOption,
       });
 
       return {
         code: 200,
-        message: "wa number get all",
+        message: "wa campaign get all",
         data: dt,
       };
     } catch (error) {
       return {
         code: 500,
-        message: "Error - WaNumberService - getAll: " + error.message,
+        message: "Error - WaCampaignService - getAll: " + error.message,
         data: null,
       };
     }
   }
 
   /**
-   * Create WA Number
+   * Create WA Campaign
    *
    * @param {any} data
    * @param {any} loginInfo
@@ -75,13 +75,13 @@ class WaNumberService {
    * @returns {Promise<{
    *    code: number,
    *    message: string,
-   *    data: {wa_number_id: number, user_id: number, name: string, number: string} | null
+   *    data: {wa_campaign_id: number, user_id: number, text: string} | null
    * }>}
    */
   async create(data, loginInfo) {
     try {
-      let wa_number_id = await generateAutoIncrement("wa_number", [
-        "wa_number_id",
+      let wa_campaign_id = await generateAutoIncrement("wa_campaign", [
+        "wa_campaign_id",
       ]);
 
       // user_id from payload if 'superadmin'
@@ -103,17 +103,16 @@ class WaNumberService {
       }
 
       // create data
-      await WaNumber.create({
-        wa_number_id: wa_number_id,
+      await WaCampaign.create({
+        wa_campaign_id: wa_campaign_id,
         user_id: userId,
-        name: data.name,
-        number: data.number,
+        text: data.text,
         created_by: loginInfo.user_id,
       });
 
       return {
         code: 201,
-        message: "create wa number successfully",
+        message: "create wa campaign successfully",
         data,
       };
     } catch (error) {
@@ -136,14 +135,14 @@ class WaNumberService {
 
       return {
         code: 500,
-        message: "Error - WaNumberService - create: " + error.message,
+        message: "Error - WaCampaignService - create: " + error.message,
         data: null,
       };
     }
   }
 
   /**
-   * Import WA Number
+   * Update WA Campaign
    *
    * @param {any} data
    * @param {any} loginInfo
@@ -151,97 +150,7 @@ class WaNumberService {
    * @returns {Promise<{
    *    code: number,
    *    message: string,
-   *    data: {wa_number_id: number, user_id: number, name: string, number: string}[] | null
-   * }>}
-   */
-  async import(data, loginInfo) {
-    const transaction = await sequelize.transaction();
-
-    try {
-      let wa_number_id = await generateAutoIncrement("wa_number", [
-        "wa_number_id",
-      ]);
-
-      // user_id from payload if 'superadmin'
-      const userId =
-        loginInfo.UserLevel.name === "superadmin"
-          ? data.user_id
-          : loginInfo.user_id;
-
-      // check user_id is exist if 'superadmin'
-      if (loginInfo.UserLevel.name === "superadmin") {
-        const dtUser = await User.findByPk(data.user_id);
-        if (!dtUser) {
-          await transaction.rollback();
-
-          return {
-            code: 404,
-            message: "user not found",
-            data: null,
-          };
-        }
-      }
-
-      // insert with looping
-      for (const row of data) {
-        // create data
-        await WaNumber.create(
-          {
-            wa_number_id: wa_number_id++,
-            user_id: userId,
-            name: row.name,
-            number: row.number,
-            created_by: loginInfo.user_id,
-          },
-          { transaction }
-        );
-      }
-
-      await transaction.commit();
-
-      return {
-        code: 201,
-        message: "import wa number successfully",
-        data,
-      };
-    } catch (error) {
-      await transaction.rollback();
-
-      if (error instanceof ValidationError) {
-        // Extract and format validation errors
-        const extractedErrors = error.errors.reduce((acc, err) => {
-          if (!acc[err.path]) {
-            acc[err.path] = [];
-          }
-          acc[err.path].push(err.message);
-          return acc;
-        }, {});
-
-        return {
-          code: 400,
-          message: "invalid request",
-          data: extractedErrors,
-        };
-      }
-
-      return {
-        code: 500,
-        message: "Error - WaNumberService - import: " + error.message,
-        data: null,
-      };
-    }
-  }
-
-  /**
-   * Update WA Number
-   *
-   * @param {any} data
-   * @param {any} loginInfo
-   *
-   * @returns {Promise<{
-   *    code: number,
-   *    message: string,
-   *    data: {wa_number_id: number, user_id: number, name: string, number: string} | null
+   *    data: {wa_campaign_id: number, user_id: number, text: string} | null
    * }>}
    */
   async update(payload, loginInfo) {
@@ -264,10 +173,10 @@ class WaNumberService {
         }
       }
 
-      // check is user has this wa number
-      const dtCheck = await WaNumber.findOne({
+      // check is user has this wa campaign
+      const dtCheck = await WaCampaign.findOne({
         where: {
-          wa_number_id: payload.wa_number_id,
+          wa_campaign_id: payload.wa_campaign_id,
           user_id: userId,
         },
       });
@@ -275,28 +184,27 @@ class WaNumberService {
       if (!dtCheck) {
         return {
           code: 404,
-          message: "wa number not found",
+          message: "wa campaign not found",
           data: null,
         };
       } else {
         // update data
-        await WaNumber.update(
+        await WaCampaign.update(
           {
             user_id: userId,
-            name: payload.name,
-            number: payload.number,
+            text: payload.text,
             updated_by: loginInfo.user_id,
             updated_at: new Date(),
           },
           {
-            where: { wa_number_id: payload.wa_number_id },
+            where: { wa_campaign_id: payload.wa_campaign_id },
             individualHooks: true,
           }
         );
 
         return {
           code: 200,
-          message: "update wa number successfully",
+          message: "update wa campaign successfully",
           data: payload,
         };
       }
@@ -320,7 +228,7 @@ class WaNumberService {
 
       return {
         code: 500,
-        message: "Error - WaNumberService - update: " + error.message,
+        message: "Error - WaCampaignService - update: " + error.message,
         data: null,
       };
     }
@@ -329,7 +237,7 @@ class WaNumberService {
   /**
    * Delete WA Campaign
    *
-   * @param {string} wa_number_id
+   * @param {string} wa_campaign_id
    * @param {any} loginInfo
    *
    * @returns {Promise<{
@@ -338,48 +246,48 @@ class WaNumberService {
    *    data: null
    * }>}
    */
-  async delete(wa_number_id, loginInfo) {
+  async delete(wa_campaign_id, loginInfo) {
     try {
       // where clause
       let whereClause;
       if (loginInfo.UserLevel.name === "client") {
         whereClause = {
-          wa_number_id: wa_number_id,
+          wa_campaign_id: wa_campaign_id,
           user_id: loginInfo.user_id,
           deleted: 0,
         };
       } else if (loginInfo.UserLevel.name === "superadmin") {
         whereClause = {
-          wa_number_id: wa_number_id,
+          wa_campaign_id: wa_campaign_id,
           deleted: 0,
         };
       }
 
-      let dtWaNumber = await WaNumber.findOne({
+      let dtWaCampaign = await WaCampaign.findOne({
         where: whereClause,
       });
 
-      if (!dtWaNumber) {
+      if (!dtWaCampaign) {
         return {
           code: 404,
-          message: "wa number not found",
+          message: "wa campaign not found",
           data: null,
         };
       } else {
-        await WaNumber.update(
+        await WaCampaign.update(
           {
             deleted: 1,
             deleted_by: loginInfo.user_id,
             deleted_at: new Date(),
           },
           {
-            where: { wa_number_id: wa_number_id },
+            where: { wa_campaign_id: wa_campaign_id },
           }
         );
 
         return {
           code: 200,
-          message: "delete wa number successfully",
+          message: "delete wa campaign successfully",
           data: null,
         };
       }
@@ -403,11 +311,11 @@ class WaNumberService {
 
       return {
         code: 500,
-        message: "Error - WaNumberService - delete: " + error.message,
+        message: "Error - WaCampaignService - delete: " + error.message,
         data: null,
       };
     }
   }
 }
 
-module.exports = new WaNumberService();
+module.exports = new WaCampaignService();
