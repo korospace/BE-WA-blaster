@@ -1,7 +1,5 @@
 // LOAD LIBS
 const { body } = require("express-validator");
-// HELPERS
-const { formatResponse } = require("../helpers/utils");
 
 /**
  * Create Rules

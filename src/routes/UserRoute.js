@@ -5,28 +5,37 @@ const router = require("express").Router();
 const UserController = require("../controllers/UserController");
 
 // MIDDLEWARES
-const authMiddleware = require('../middlewares/authMiddleware');
+const authMiddleware = require("../middlewares/authMiddleware");
 
 // VALIDATORS
-const { mapperV1 } = require('../validators/ErrorsMapper');
-const { createRules,updateRules } = require('../validators/UserRules');
+const { mapperV1 } = require("../validators/ErrorsMapper");
+const { createRules, updateRules } = require("../validators/UserRules");
 
 // ROUTE DEFINE
-router.get("/user/all", authMiddleware(['superadmin']), UserController.getAll);
+router.get("/user/all", authMiddleware(["superadmin"]), UserController.getAll);
+router.get(
+  "/user/profile",
+  authMiddleware(["superadmin", "client"]),
+  UserController.profile
+);
 router.post(
-  "/user/create", 
-  authMiddleware(['superadmin']),  
-  createRules(),                   
-  mapperV1,                        
-  UserController.create            
+  "/user/create",
+  authMiddleware(["superadmin"]),
+  createRules(),
+  mapperV1,
+  UserController.create
 );
 router.put(
-  "/user/update", 
-  authMiddleware(['superadmin']),  
-  updateRules(),                   
-  mapperV1,                        
-  UserController.update            
+  "/user/update",
+  authMiddleware(["superadmin"]),
+  updateRules(),
+  mapperV1,
+  UserController.update
 );
-router.delete("/user/delete/:user_id", authMiddleware(['superadmin']), UserController.delete);
+router.delete(
+  "/user/delete/:user_id",
+  authMiddleware(["superadmin"]),
+  UserController.delete
+);
 
 module.exports = router;

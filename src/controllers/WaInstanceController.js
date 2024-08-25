@@ -1,9 +1,9 @@
 // HELPERS
 const { formatResponse } = require("../helpers/utils");
 // SERVICES
-const WaCampaignService = require("../services/WaCampaignService");
+const WaInstanceService = require("../services/WaInstanceService");
 
-class WaCampaignController {
+class WaInstanceController {
   /**
    * Get All WA Campaign
    */
@@ -13,7 +13,7 @@ class WaCampaignController {
       const user_id = req.query.user_id;
 
       // service logic
-      const dt = await WaCampaignService.getAll(user_id, req.login_info);
+      const dt = await WaInstanceService.getAll(user_id, req.login_info);
 
       // response api
       formatResponse(res, dt.code, dt.message, dt.data);
@@ -28,11 +28,11 @@ class WaCampaignController {
   static async create(req, res) {
     try {
       // request body
-      let { user_id, text } = req.body;
+      let { user_id, phone_number, status } = req.body;
 
       // service logic
-      let data = { user_id, text };
-      const dtCreate = await WaCampaignService.create(data, req.login_info);
+      let data = { user_id, phone_number, status };
+      const dtCreate = await WaInstanceService.create(data, req.login_info);
 
       // response api
       formatResponse(res, dtCreate.code, dtCreate.message, dtCreate.data);
@@ -42,19 +42,19 @@ class WaCampaignController {
   }
 
   /**
-   * Update WA Campaign
+   * Blast WA Campaign
    */
-  static async update(req, res) {
+  static async blast(req, res) {
     try {
       // request body
-      let { wa_campaign_id, user_id, text } = req.body;
+      let { text } = req.body;
 
       // service logic
-      let data = { wa_campaign_id, user_id, text };
-      const dtUpdate = await WaCampaignService.update(data, req.login_info);
+      let data = { text };
+      const dtCreate = await WaInstanceService.blast(data, req.login_info);
 
       // response api
-      formatResponse(res, dtUpdate.code, dtUpdate.message, dtUpdate.data);
+      formatResponse(res, dtCreate.code, dtCreate.message, dtCreate.data);
     } catch (error) {
       formatResponse(res, 500, error.message);
     }
@@ -66,8 +66,8 @@ class WaCampaignController {
   static async delete(req, res) {
     try {
       // service logic
-      const dtDelete = await WaCampaignService.delete(
-        req.params.wa_campaign_id,
+      const dtDelete = await WaInstanceService.delete(
+        req.params.wa_instance_id,
         req.login_info
       );
 
@@ -79,4 +79,4 @@ class WaCampaignController {
   }
 }
 
-module.exports = WaCampaignController;
+module.exports = WaInstanceController;

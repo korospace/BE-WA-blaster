@@ -1,5 +1,5 @@
 // MODELS
-const { User } = require('../models');
+const { User } = require("../models");
 // HELPERS
 const { compareText } = require("../helpers/bcrypt");
 const { generateToken } = require("../helpers/jwt");
@@ -7,66 +7,66 @@ const { generateToken } = require("../helpers/jwt");
 class AuthService {
   /**
    * Login Service
-   * 
+   *
    * @param {string} email
    * @param {string} password
-   * 
+   *
    * @returns {Promise<{
-   *    code: number, 
-   *    message: 
-   *    string, 
+   *    code: number,
+   *    message:
+   *    string,
    *    data: any
-   * }>} 
+   * }>}
    */
   async login(email, password) {
-      try {
-        // get user by email
-        const dtUser = await User.findOne({
-          where:{
-            email
-          }
-        });
+    try {
+      // get user by email
+      const dtUser = await User.findOne({
+        where: {
+          email,
+        },
+      });
 
-        if (dtUser == null) {
+      if (dtUser == null) {
+        return {
+          code: 401,
+          message: "wrong email or password",
+          data: null,
+        };
+      } else {
+        // compare password
+        const passIsCorrect = compareText(password, dtUser.password);
+
+        if (!passIsCorrect) {
           return {
             code: 401,
-            message: 'wrong email or password',
-            data: null
-          }; 
+            message: "wrong email or password",
+            data: null,
+          };
         } else {
-          // compare password
-          const passIsCorrect = compareText(password,dtUser.password);
+          // generate token
+          let payload = {
+            user_id: dtUser.user_id,
+            email: dtUser.email,
+          };
 
-          if (!passIsCorrect) {
-            return {
-              code: 401,
-              message: 'wrong email or password',
-              data: null
-            }; 
-          } else {
-            // generate token
-            let payload = {
-              user_id: dtUser.user_id,
-              email: dtUser.email,
-            }
-
-            return {
-              code: 200,
-              message: 'login success',
-              data: {
-                token: generateToken(payload)
-              }
-            };  
-          }
+          return {
+            code: 200,
+            message: "login success",
+            data: {
+              ...payload,
+              token: generateToken(payload),
+            },
+          };
         }
-
-      } catch (error) {
-        return {
-          code: 500,
-          message: 'Error - Auth Service - login : ' + error.message,
-          data: null
-        }; 
       }
+    } catch (error) {
+      return {
+        code: 500,
+        message: "Error - Auth Service - login : " + error.message,
+        data: null,
+      };
+    }
   }
 }
 
