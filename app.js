@@ -2,7 +2,10 @@
 require("dotenv").config();
 const http = require("http");
 const express = require("express");
-const { setupSocket } = require("./src/socket/socket");
+const { setupSocket } = require("./src/pkg/socket/socket");
+
+// CRON
+require("./src/services/CronService");
 
 // ROUTES
 const HtmlRoute = require("./src/routes/HtmlRoute");

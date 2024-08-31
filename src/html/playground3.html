@@ -72,26 +72,117 @@
         })
         .catch((error) => console.error(error));
 
-      // Create Element
+      // Create Card
       function CreateCard(result) {
         let rows = result.data;
         let cards = "";
 
         rows.forEach((row) => {
           cards += `<div class="col-4">
-                <div class="card">
+                <div id="${row.wa_instance_id}" class="card">
                     <div class="card-header">
                         ${row.wa_instance_id}
                     </div>
                     <div class="card-body">
-                        <h5 class="card-title">${row.phone_number}</h5>
-                        <p class="card-text">${row.status}</p>
+                        <h5 class="card-title">${
+                          row.phone_number ? row.phone_number : "_ _ _ _"
+                        }</h5>
+                        <img src="${row.qr_code}" style="width: 100%;display: ${
+            row.status == "qr" ? "" : "none"
+          };">
+                        <p class="card-text">${
+                          row.status == "qr"
+                            ? "Please, scan the QR!!"
+                            : row.status
+                        }</p>
                     </div>
                 </div>
             </div>`;
         });
 
         document.querySelector(".container #card-wraper").innerHTML = cards;
+        WatchCardsEvent(result);
+      }
+
+      // Watch Evens Each Card
+      function WatchCardsEvent(result) {
+        let rows = result.data;
+
+        rows.forEach((row) => {
+          socket.on(`instance:${row.wa_instance_id}`, (result) => {
+            // ON Generate QR
+            if (result.data.qr && result.data.status == "qr") {
+              document.querySelector(
+                `#${row.wa_instance_id} img`
+              ).style.display = "block";
+              document.querySelector(`#${row.wa_instance_id} img`).src =
+                result.data.qr;
+              document.querySelector(`#${row.wa_instance_id} h5`).innerHTML =
+                "_ _ _ _";
+              document.querySelector(`#${row.wa_instance_id} p`).innerHTML =
+                result.message;
+            }
+            // ON Scan QR
+            if (result.data.qr == null && result.data.status == "ready") {
+              document.querySelector(
+                `#${row.wa_instance_id} img`
+              ).style.display = "none";
+              document.querySelector(`#${row.wa_instance_id} h5`).innerHTML =
+                result.data.phone_number;
+              document.querySelector(`#${row.wa_instance_id} p`).innerHTML =
+                result.message;
+            }
+            // ON Authenticated
+            if (
+              result.data.qr == null &&
+              result.data.status == "authenticated"
+            ) {
+              document.querySelector(
+                `#${row.wa_instance_id} img`
+              ).style.display = "none";
+              document.querySelector(`#${row.wa_instance_id} p`).innerHTML =
+                result.message;
+            }
+            // ON Failure
+            if (
+              result.data.qr == null &&
+              result.data.status == "auth_failure"
+            ) {
+              document.querySelector(
+                `#${row.wa_instance_id} img`
+              ).style.display = "none";
+              document.querySelector(`#${row.wa_instance_id} p`).innerHTML =
+                result.message;
+            }
+            // ON Stopped
+            if (
+              result.data.qr == null &&
+              result.data.status == "disconnected"
+            ) {
+              document.querySelector(
+                `#${row.wa_instance_id} img`
+              ).style.display = "none";
+              document.querySelector(`#${row.wa_instance_id} h5`).innerHTML =
+                "_ _ _ _";
+              document.querySelector(`#${row.wa_instance_id} p`).innerHTML =
+                result.message;
+            }
+          });
+        });
+      }
+
+      // Add new instance
+      function addNewInstance() {
+        fetch("http://localhost:8080/wa_instance/create", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + token,
+          },
+          redirect: "follow",
+        })
+          .then((response) => response.text())
+          .then((result) => console.log(result))
+          .catch((error) => console.error(error));
       }
     </script>
   </body>

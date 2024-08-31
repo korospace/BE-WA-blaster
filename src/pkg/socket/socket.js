@@ -2,10 +2,10 @@
 const socketIo = require("socket.io");
 
 // MIDDLEWARES
-const authSocketMiddleware = require("../middlewares/authSocketMiddleware");
+const authSocketMiddleware = require("../../middlewares/authSocketMiddleware");
 
 // SERVICES
-const UserService = require("../services/UserService");
+const UserService = require("../../services/UserService");
 
 let io;
 

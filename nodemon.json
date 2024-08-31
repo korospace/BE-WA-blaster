@@ -2,6 +2,7 @@
   "watch": ["app.js", ".env", ".sequelizerc", "src"],
   "ext": "js,json",
   "ignore": [
+    "src/generated/*",
     "src/migrations/*",
     "src/seeders/*",
     ".wwebjs_auth/*",

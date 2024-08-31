@@ -1,12 +1,16 @@
 // LOAD LIBS
 const { ValidationError } = require("sequelize");
-const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
+const { Client, LocalAuth, RemoteAuth } = require("whatsapp-web.js");
+// const { MongoStore } = require("wwebjs-mongo");
 const qrcode = require("qrcode");
-const fs = require("fs").promises;
+const fs = require("fs");
 const path = require("path");
 
 // MODELS
 const { User, WaInstance, WaNumber } = require("../models");
+
+// SERVICES
+const emailService = require("./EmailService");
 
 // HELPERS
 const {
@@ -15,7 +19,10 @@ const {
 } = require("../helpers/utils");
 
 // SOCKET
-const { getSocket } = require("../socket/socket");
+const { getSocket } = require("../pkg/socket/socket");
+
+// MONGO-DB
+// const mongoose = require("../pkg/mongodb/mongo");
 
 class WaInstanceService {
   /**
@@ -186,6 +193,7 @@ class WaInstanceService {
       });
       this.getAll_revalidate(userId, loginInfo);
       this.wakeUpInstance(wa_instance_id, userId);
+      this.saveWaInstanceActiveToFile(wa_instance_id, userId);
 
       return {
         code: 201,
@@ -358,6 +366,10 @@ class WaInstanceService {
           }
         );
         this.getAll_revalidate(dtWaInstance.user_id, loginInfo);
+        this.removeWaInstanceActiveFromFile(
+          wa_instance_id,
+          dtWaInstance.user_id
+        );
 
         return {
           code: 200,
@@ -391,6 +403,14 @@ class WaInstanceService {
     }
   }
 
+  /**
+   * Wakup WA Instance
+   *
+   * @param {string} wa_instance_id
+   * @param {string} userId
+   *
+   * @returns {void}
+   */
   async wakeUpInstance(wa_instance_id, userId) {
     const io = getSocket();
 
@@ -403,12 +423,18 @@ class WaInstanceService {
         console.log(`Instance ${wa_instance_id} sedang dibangunkan.`);
       }
 
-      const clientFolder = path.join(__dirname, `../../.wwebjs_auth`);
+      // Auth Folder
+      const authFolder = path.join(__dirname, `../../.wwebjs_auth`);
+
+      // Auth DB
+      // const store = new MongoStore({ mongoose });
+
       const client = new Client({
         clientId: wa_instance_id,
         restartOnAuthFail: true,
         puppeteer: {
           headless: true,
+          timeout: 60000,
           args: [
             "--no-sandbox",
             "--disable-setuid-sandbox",
@@ -423,8 +449,13 @@ class WaInstanceService {
         },
         authStrategy: new LocalAuth({
           clientId: wa_instance_id,
-          dataPath: clientFolder,
+          dataPath: authFolder,
         }),
+        // authStrategy: new RemoteAuth({
+        //   clientId: wa_instance_id,
+        //   backupSyncIntervalMs: 60000,
+        //   store,
+        // }),
       });
 
       client.on("qr", async (qr) => {
@@ -449,6 +480,8 @@ class WaInstanceService {
             where: { wa_instance_id: wa_instance_id },
           }
         );
+
+        this.removeWaInstanceReadyFromFile(wa_instance_id, userId);
       });
 
       client.on("ready", async () => {
@@ -474,6 +507,8 @@ class WaInstanceService {
             where: { wa_instance_id: wa_instance_id },
           }
         );
+
+        this.saveWaInstanceReadyToFile(wa_instance_id, userId);
       });
 
       client.on("authenticated", async () => {
@@ -518,10 +553,14 @@ class WaInstanceService {
             where: { wa_instance_id: wa_instance_id },
           }
         );
+
+        this.removeWaInstanceReadyFromFile(wa_instance_id, userId);
       });
-      client.initialize();
 
       client.on("disconnected", async (reason) => {
+        await this.notifInstanceDisconect(wa_instance_id, reason);
+        await this.removeWaInstanceReadyFromFile(wa_instance_id, userId);
+
         io.to(`room:${userId}`).emit(`instance:${wa_instance_id}`, {
           code: 200,
           message: "Instance is disconnected!",
@@ -542,14 +581,15 @@ class WaInstanceService {
             where: { wa_instance_id: wa_instance_id },
           }
         );
-        client.destroy();
-        client.initialize();
 
         delete global.instances[wa_instance_id];
+        client.initialize();
       });
 
+      client.initialize();
       global.instances = global.instances || {};
       global.instances[wa_instance_id] = client;
+      return;
     } catch (error) {
       io.to(`room:${userId}`).emit(`instance:${wa_instance_id}`, {
         code: 500,
@@ -557,6 +597,172 @@ class WaInstanceService {
         data: null,
       });
       console.log(`Instance ${wa_instance_id} bermasalah: `, error.message);
+      return;
+    }
+  }
+
+  /**
+   * Save WA Instance READY to JSON
+   *
+   * @param {string} wa_instance_id
+   * @param {string} userId
+   *
+   * @returns {void}
+   */
+  async saveWaInstanceReadyToFile(wa_instance_id, userId) {
+    const filePath = path.join(
+      __dirname,
+      "../generated/wa_instance_ready.json"
+    );
+
+    // Baca file JSON yang ada (jika ada)
+    let waInstanceIds = [];
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath);
+      waInstanceIds = JSON.parse(data);
+    }
+
+    // Tambahkan wa_instance_id baru ke array
+    const isExist = waInstanceIds.some(
+      (instance) => instance.wa_instance_id === wa_instance_id
+    );
+    if (!isExist) {
+      waInstanceIds.push({
+        wa_instance_id: wa_instance_id,
+        user_id: userId,
+      });
+    }
+
+    // Tulis array ke file JSON
+    fs.writeFileSync(filePath, JSON.stringify(waInstanceIds, null, 2));
+    return;
+  }
+
+  /**
+   * Remove WA Instance READY from JSON
+   *
+   * @param {string} wa_instance_id
+   * @param {string} userId
+   *
+   * @returns {void}
+   */
+  async removeWaInstanceReadyFromFile(wa_instance_id, userId) {
+    const filePath = path.join(
+      __dirname,
+      "../generated/wa_instance_ready.json"
+    );
+
+    // Baca file JSON yang ada (jika ada)
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath);
+      let waInstanceIds = JSON.parse(data);
+
+      // Hapus wa_instance_id dari array
+      waInstanceIds = waInstanceIds.filter(
+        (row) => row.wa_instance_id !== wa_instance_id
+      );
+
+      // Tulis array yang sudah diperbarui ke file JSON
+      fs.writeFileSync(filePath, JSON.stringify(waInstanceIds, null, 2));
+    }
+
+    return;
+  }
+
+  /**
+   * Save WA Instance ACTIVE to JSON
+   *
+   * @param {string} wa_instance_id
+   * @param {string} userId
+   *
+   * @returns {void}
+   */
+  async saveWaInstanceActiveToFile(wa_instance_id, userId) {
+    const filePath = path.join(
+      __dirname,
+      "../generated/wa_instance_active.json"
+    );
+
+    // Baca file JSON yang ada (jika ada)
+    let waInstanceIds = [];
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath);
+      waInstanceIds = JSON.parse(data);
+    }
+
+    // Tambahkan wa_instance_id baru ke array
+    const isExist = waInstanceIds.some(
+      (instance) => instance.wa_instance_id === wa_instance_id
+    );
+    if (!isExist) {
+      waInstanceIds.push({
+        wa_instance_id: wa_instance_id,
+        user_id: userId,
+      });
+    }
+
+    // Tulis array ke file JSON
+    fs.writeFileSync(filePath, JSON.stringify(waInstanceIds, null, 2));
+    return;
+  }
+
+  /**
+   * Remove WA Instance ACTIVE from JSON
+   *
+   * @param {string} wa_instance_id
+   * @param {string} userId
+   *
+   * @returns {void}
+   */
+  async removeWaInstanceActiveFromFile(wa_instance_id, userId) {
+    const filePath = path.join(
+      __dirname,
+      "../generated/wa_instance_active.json"
+    );
+
+    // Baca file JSON yang ada (jika ada)
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath);
+      let waInstanceIds = JSON.parse(data);
+
+      // Hapus wa_instance_id dari array
+      waInstanceIds = waInstanceIds.filter(
+        (row) => row.wa_instance_id !== wa_instance_id
+      );
+
+      // Tulis array yang sudah diperbarui ke file JSON
+      fs.writeFileSync(filePath, JSON.stringify(waInstanceIds, null, 2));
+    }
+
+    return;
+  }
+
+  async notifInstanceDisconect(wa_instance_id, reason) {
+    try {
+      // get instance data
+      const dt = await WaInstance.findOne({
+        attributes: ["wa_instance_id", "user_id", "phone_number"],
+        where: { wa_instance_id: wa_instance_id },
+        include: [
+          {
+            model: User,
+            attributes: ["user_id", "email"],
+            as: "user",
+          },
+        ],
+      });
+
+      // send email
+      const subject = "Instance Disconnect";
+      const text = "Instance Disconnect";
+      const html = `<h1>${wa_instance_id}</h1><h2>${dt.user.email}</h2><p>Disconnect with reason: ${reason}!</p>`;
+
+      await emailService.sendMail(dt.user.email, subject, text, html);
+    } catch (error) {
+      console.log(
+        "Error - WaInstanceService - notifInstanceDisconect: ",
+        error.message
+      );
     }
   }
 }
