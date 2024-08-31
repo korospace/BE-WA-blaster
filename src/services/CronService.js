@@ -61,7 +61,7 @@ const checkUpWaInstanceReady = async () => {
 
           // send notif
           await WaInstanceService.notifInstanceDisconect(
-            wa_instance,
+            row.wa_instance_id,
             "ERROR - " + error.message
           );
         }
