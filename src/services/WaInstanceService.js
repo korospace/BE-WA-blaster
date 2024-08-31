@@ -63,8 +63,13 @@ class WaInstanceService {
           }
         }
       } else {
-        includeOption = [];
-        whereClause = { deleted: 0, user_id: userId };
+        if (userId) {
+          includeOption = [];
+          whereClause = { deleted: 0, user_id: userId };
+        } else {
+          includeOption = [];
+          whereClause = { deleted: 0 };
+        }
       }
 
       const dt = await WaInstance.findAll({
@@ -101,7 +106,7 @@ class WaInstanceService {
         newDt.push(row);
 
         // Wake up the instance asynchronously
-        await this.wakeUpInstance(row.wa_instance_id, row.user_id);
+        this.wakeUpInstance(row.wa_instance_id, row.user_id);
       }
 
       return {
@@ -192,8 +197,7 @@ class WaInstanceService {
         created_by: loginInfo.user_id,
       });
       this.getAll_revalidate(userId, loginInfo);
-      this.wakeUpInstance(wa_instance_id, userId);
-      this.saveWaInstanceActiveToFile(wa_instance_id, userId);
+      this.saveWaInstanceDisconnectToFile(wa_instance_id, userId);
 
       return {
         code: 201,
@@ -316,6 +320,116 @@ class WaInstanceService {
   }
 
   /**
+   * Logout WA Instance
+   *
+   * @param {string} wa_instance_id
+   * @param {any} loginInfo
+   *
+   * @returns {Promise<{
+   *    code: number,
+   *    message: string,
+   *    data: null
+   * }>}
+   */
+  async logout(wa_instance_id, loginInfo) {
+    const io = getSocket();
+
+    try {
+      // where clause
+      let whereClause;
+      if (loginInfo.UserLevel.name === "client") {
+        whereClause = {
+          wa_instance_id: wa_instance_id,
+          user_id: loginInfo.user_id,
+          deleted: 0,
+        };
+      } else if (loginInfo.UserLevel.name === "superadmin") {
+        whereClause = {
+          wa_instance_id: wa_instance_id,
+          deleted: 0,
+        };
+      }
+
+      let dtWaInstance = await WaInstance.findOne({
+        where: whereClause,
+      });
+
+      if (!dtWaInstance) {
+        return {
+          code: 404,
+          message: "wa instance not found",
+          data: null,
+        };
+      } else {
+        await WaInstance.update(
+          {
+            phone_number: "",
+            status: "disconnected",
+            updated_by: loginInfo.user_id,
+            updated_at: new Date(),
+          },
+          {
+            where: { wa_instance_id: wa_instance_id },
+          }
+        );
+        if (global.instances && global.instances[wa_instance_id]) {
+          await global.instances[wa_instance_id].logout();
+          delete global.instances[wa_instance_id];
+        }
+        this.removeWaInstanceReadyFromFile(
+          wa_instance_id,
+          dtWaInstance.user_id
+        );
+        this.saveWaInstanceDisconnectToFile(
+          wa_instance_id,
+          dtWaInstance.user_id
+        );
+        io.to(`room:${dtWaInstance.user_id}`).emit(
+          `instance:${wa_instance_id}`,
+          {
+            code: 200,
+            message: "Instance is disconnected!",
+            data: {
+              qr: null,
+              status: "disconnected",
+              phone_number: null,
+            },
+          }
+        );
+
+        return {
+          code: 200,
+          message: "logout wa instance successfully",
+          data: null,
+        };
+      }
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        // Extract and format validation errors
+        const extractedErrors = error.errors.reduce((acc, err) => {
+          if (!acc[err.path]) {
+            acc[err.path] = [];
+          }
+          acc[err.path].push(err.message);
+          return acc;
+        }, {});
+
+        return {
+          code: 400,
+          message: "invalid request",
+          data: extractedErrors,
+        };
+      }
+
+      return {
+        code: 500,
+        message: "Error - WaInstanceService - logout: " + error.message,
+        data: null,
+      };
+    }
+  }
+
+  /**
    * Delete WA Instance
    *
    * @param {string} wa_instance_id
@@ -355,6 +469,7 @@ class WaInstanceService {
           data: null,
         };
       } else {
+        await this.logout(wa_instance_id, loginInfo);
         await WaInstance.update(
           {
             deleted: 1,
@@ -365,11 +480,14 @@ class WaInstanceService {
             where: { wa_instance_id: wa_instance_id },
           }
         );
-        this.getAll_revalidate(dtWaInstance.user_id, loginInfo);
-        this.removeWaInstanceActiveFromFile(
+        if (global.instances && global.instances[wa_instance_id]) {
+          delete global.instances[wa_instance_id];
+        }
+        this.removeWaInstanceDisconnectFromFile(
           wa_instance_id,
           dtWaInstance.user_id
         );
+        this.getAll_revalidate(dtWaInstance.user_id, loginInfo);
 
         return {
           code: 200,
@@ -482,6 +600,7 @@ class WaInstanceService {
         );
 
         this.removeWaInstanceReadyFromFile(wa_instance_id, userId);
+        this.saveWaInstanceDisconnectToFile(wa_instance_id, userId);
       });
 
       client.on("ready", async () => {
@@ -509,6 +628,7 @@ class WaInstanceService {
         );
 
         this.saveWaInstanceReadyToFile(wa_instance_id, userId);
+        this.removeWaInstanceDisconnectFromFile(wa_instance_id, userId);
       });
 
       client.on("authenticated", async () => {
@@ -531,6 +651,9 @@ class WaInstanceService {
             where: { wa_instance_id: wa_instance_id },
           }
         );
+
+        this.saveWaInstanceReadyToFile(wa_instance_id, userId);
+        this.removeWaInstanceDisconnectFromFile(wa_instance_id, userId);
       });
 
       client.on("auth_failure", async (session) => {
@@ -555,11 +678,13 @@ class WaInstanceService {
         );
 
         this.removeWaInstanceReadyFromFile(wa_instance_id, userId);
+        this.saveWaInstanceDisconnectToFile(wa_instance_id, userId);
       });
 
       client.on("disconnected", async (reason) => {
+        this.removeWaInstanceReadyFromFile(wa_instance_id, userId);
+        this.saveWaInstanceDisconnectToFile(wa_instance_id, userId);
         await this.notifInstanceDisconect(wa_instance_id, reason);
-        await this.removeWaInstanceReadyFromFile(wa_instance_id, userId);
 
         io.to(`room:${userId}`).emit(`instance:${wa_instance_id}`, {
           code: 200,
@@ -670,17 +795,17 @@ class WaInstanceService {
   }
 
   /**
-   * Save WA Instance ACTIVE to JSON
+   * Save WA Instance DISCONNECT to JSON
    *
    * @param {string} wa_instance_id
    * @param {string} userId
    *
    * @returns {void}
    */
-  async saveWaInstanceActiveToFile(wa_instance_id, userId) {
+  async saveWaInstanceDisconnectToFile(wa_instance_id, userId) {
     const filePath = path.join(
       __dirname,
-      "../generated/wa_instance_active.json"
+      "../generated/wa_instance_disconnect.json"
     );
 
     // Baca file JSON yang ada (jika ada)
@@ -707,17 +832,17 @@ class WaInstanceService {
   }
 
   /**
-   * Remove WA Instance ACTIVE from JSON
+   * Remove WA Instance DISCONNECT from JSON
    *
    * @param {string} wa_instance_id
    * @param {string} userId
    *
    * @returns {void}
    */
-  async removeWaInstanceActiveFromFile(wa_instance_id, userId) {
+  async removeWaInstanceDisconnectFromFile(wa_instance_id, userId) {
     const filePath = path.join(
       __dirname,
-      "../generated/wa_instance_active.json"
+      "../generated/wa_instance_disconnect.json"
     );
 
     // Baca file JSON yang ada (jika ada)
@@ -751,6 +876,18 @@ class WaInstanceService {
           },
         ],
       });
+
+      // update
+      await WaInstance.update(
+        {
+          phone_number: "",
+          qr_code: "",
+          status: "disconnected",
+        },
+        {
+          where: { wa_instance_id: wa_instance_id },
+        }
+      );
 
       // send email
       const subject = "Instance Disconnect";

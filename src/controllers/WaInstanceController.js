@@ -5,7 +5,7 @@ const WaInstanceService = require("../services/WaInstanceService");
 
 class WaInstanceController {
   /**
-   * Get All WA Campaign
+   * Get All WA Instance
    */
   static async getAll(req, res) {
     try {
@@ -23,7 +23,7 @@ class WaInstanceController {
   }
 
   /**
-   * Create WA Campaign
+   * Create WA Instance
    */
   static async create(req, res) {
     try {
@@ -42,7 +42,7 @@ class WaInstanceController {
   }
 
   /**
-   * Blast WA Campaign
+   * Blast WA Instance
    */
   static async blast(req, res) {
     try {
@@ -61,7 +61,25 @@ class WaInstanceController {
   }
 
   /**
-   * Delete WA Campaign
+   * Logout WA Instance
+   */
+  static async logout(req, res) {
+    try {
+      // service logic
+      const dtLogout = await WaInstanceService.logout(
+        req.params.wa_instance_id,
+        req.login_info
+      );
+
+      // response api
+      formatResponse(res, dtLogout.code, dtLogout.message, dtLogout.data);
+    } catch (error) {
+      formatResponse(res, 500, error.message);
+    }
+  }
+
+  /**
+   * Delete WA Instance
    */
   static async delete(req, res) {
     try {

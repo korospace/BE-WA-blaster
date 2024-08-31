@@ -6,10 +6,6 @@ const cron = require("node-cron");
 // SERVICES
 const WaInstanceService = require("./WaInstanceService");
 
-// MODELS
-const { User, WaInstance } = require("../models");
-const wa_instance = require("../models/wa_instance");
-
 /**
  * Check WA Instance is READY
  *
@@ -40,9 +36,15 @@ const checkUpWaInstanceReady = async () => {
               row.user_id
             );
 
+            // add to disconnect file
+            WaInstanceService.saveWaInstanceDisconnectToFile(
+              row.wa_instance_id,
+              row.user_id
+            );
+
             // send notif
             await WaInstanceService.notifInstanceDisconect(
-              wa_instance,
+              row.wa_instance_id,
               "no reason"
             );
           }
@@ -74,13 +76,16 @@ const checkUpWaInstanceReady = async () => {
 cron.schedule("*/5 * * * * *", checkUpWaInstanceReady);
 
 /**
- * Check WA Instance is ACTIVE
+ * Check WA Instance is DISCONNECT
  *
  * @returns {void}
  */
-const checkUpWaInstanceActive = async () => {
-  console.log("CRON - checkUpWaInstanceActive");
-  const filePath = path.join(__dirname, "../generated/wa_instance_active.json");
+const checkUpWaInstanceDisconnect = async () => {
+  console.log("CRON - checkUpWaInstanceDisconnect");
+  const filePath = path.join(
+    __dirname,
+    "../generated/wa_instance_disconnect.json"
+  );
 
   if (fs.existsSync(filePath)) {
     const data = fs.readFileSync(filePath);
@@ -96,6 +101,6 @@ const checkUpWaInstanceActive = async () => {
     }
   }
 };
-cron.schedule("*/5 * * * * *", checkUpWaInstanceActive);
+cron.schedule("*/5 * * * * *", checkUpWaInstanceDisconnect);
 
 module.exports = cron;

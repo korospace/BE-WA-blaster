@@ -35,7 +35,7 @@
       const token =
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoyLCJlbWFpbCI6ImNsaWVudDFAZ21haWwuY29tIiwiaWF0IjoxNzIzOTg0MDQwfQ.KfNS8xddBvJhutv3UYC81GH9M0996j2OHFS9N5rKud4";
 
-      const socket = io("http://localhost:8080", {
+      const socket = io("http://localhost:8181", {
         transports: ["websocket"],
         auth: {
           token: token,
@@ -43,7 +43,7 @@
       });
 
       // Get Profile
-      fetch("http://localhost:8080/user/profile", {
+      fetch("http://localhost:8181/user/profile", {
         method: "GET",
         headers: {
           Authorization: "Bearer " + token,
@@ -57,7 +57,7 @@
           document.querySelector("#email").innerHTML = profile.email;
 
           // Fetch - Instance
-          fetch("http://localhost:8080/wa_instance/all", {
+          fetch("http://localhost:8181/wa_instance/all", {
             method: "GET",
             headers: {
               Authorization: "Bearer " + token,
@@ -176,7 +176,7 @@
 
       // Add new instance
       function addNewInstance() {
-        fetch("http://localhost:8080/wa_instance/create", {
+        fetch("http://localhost:8181/wa_instance/create", {
           method: "POST",
           headers: {
             Authorization: "Bearer " + token,

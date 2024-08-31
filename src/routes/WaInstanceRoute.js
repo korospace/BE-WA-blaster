@@ -30,6 +30,11 @@ router.post(
   WaInstanceController.blast
 );
 router.delete(
+  "/wa_instance/logout/:wa_instance_id",
+  authMiddleware(["superadmin", "client"]),
+  WaInstanceController.logout
+);
+router.delete(
   "/wa_instance/delete/:wa_instance_id",
   authMiddleware(["superadmin", "client"]),
   WaInstanceController.delete
